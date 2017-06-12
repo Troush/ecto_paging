@@ -165,9 +165,8 @@ defmodule Ecto.Paging do
     case extract_timestamp(repo, table, {pk_type, pk}, ending_before, chronological_field) do
       {:ok, ts} ->
         {rev_order, q} = query
-        |> where([c], field(c, ^chronological_field) < ^ts)
+        |> find_where_order(chronological_field, ts)
         |> flip_orders(pk, pk_type, chronological_field)
-
         restore_query_order(rev_order, pk_type, pk, q, chronological_field)
       {:error, :not_found} ->
         query
@@ -192,12 +191,27 @@ defmodule Ecto.Paging do
     end
   end
 
+  def find_where_order(%Ecto.Query{order_bys: [%Ecto.Query.QueryExpr{expr: expr} | t]} = query, chronological_field, timestamp)
+      when is_list(expr) and length(expr) > 0 do
+    case Keyword.keys(expr) |> Enum.at(0) do
+      :asc  -> query |> where([c], field(c, ^chronological_field) < ^timestamp)
+      :desc -> query |> where([c], field(c, ^chronological_field) > ^timestamp)
+    end
+  end
+
+   def find_where_order(%Ecto.Query{} = query, chronological_field, timestamp) do
+    query |> where([c], field(c, ^chronological_field) < ^timestamp)
+  end
+
   defp flip_orders(%Ecto.Query{} = query, _pk, :string, chronological_field) do
     {:asc, query |> order_by([c], desc: field(c, ^chronological_field))}
   end
 
+  #TODO: potencial bug maker. Checked, it is
   defp flip_orders(%Ecto.Query{order_bys: order_bys} = query, _pk, _pk_type, _chronological_field)
        when is_list(order_bys) and length(order_bys) > 0 do
+         require IEx
+         IEx.pry
     {:desc, query}
   end
 

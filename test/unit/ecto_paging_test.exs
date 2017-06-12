@@ -1,5 +1,5 @@
 defmodule Ecto.PagingTest do
-  use Ecto.Paging.ModelCase, async: true
+  use Ecto.Paging.ModelCase, async: false
   alias Ecto.Paging
   doctest Ecto.Paging
 
@@ -24,6 +24,18 @@ defmodule Ecto.PagingTest do
     insert_records()
 
     assert Ecto.Paging.TestRepo.all(query) == []
+  end
+
+  test "explictly define asc order works" do
+    [{:ok, record}| _t] = insert_records()
+    res1 = get_query()
+      |> Ecto.Query.order_by(asc: :inserted_at)
+      |> Ecto.Paging.TestRepo.paginate(%{limit: 5, cursors: %{ending_before: record.id}})
+      |> Ecto.Paging.TestRepo.all
+      IO.inspect res1
+
+      # Ordering not influencing pagination
+      assert length(res1) == 5
   end
 
   describe "converts from map" do
@@ -183,6 +195,29 @@ defmodule Ecto.PagingTest do
 
       assert List.first(res2).id == paging.cursors.ending_before
       assert paging.has_more
+    end
+
+    test "paginate back with ending before, but with order by DESC" do
+      # Order by desc query and paginate from first elem
+      res1 = get_query()
+      |> Ecto.Query.order_by(desc: :inserted_at)
+      |> Ecto.Paging.TestRepo.paginate(%{limit: 5})
+      |> Ecto.Paging.TestRepo.all
+      IO.inspect res1
+
+      # Ordering not influencing pagination
+      assert length(res1) == 5
+
+      IO.inspect List.last(res1).id
+      res2 = get_query()
+      |> Ecto.Query.order_by(desc: :inserted_at)
+      |> Ecto.Paging.TestRepo.paginate(%{limit: 5, cursors: %{ending_before: List.last(res1).id}})
+      |> Ecto.Paging.TestRepo.all
+
+      # %{ending_before} return inversed result properly
+      IO.inspect res2
+      assert length(res2) == 4
+      assert List.first(res1) == List.first(res2)
     end
   end
 
