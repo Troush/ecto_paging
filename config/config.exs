@@ -12,3 +12,5 @@ config :ecto_paging, ecto_repos: [Ecto.Paging.TestRepo]
 
 config :logger, level: :debug
 config :ex_unit, capture_log: true
+
+import_config "#{Mix.env}.exs"

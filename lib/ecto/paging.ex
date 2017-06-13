@@ -167,7 +167,8 @@ defmodule Ecto.Paging do
         {rev_order, q} = query
         |> find_where_order(chronological_field, ts)
         |> flip_orders(pk, pk_type, chronological_field)
-        restore_query_order(rev_order, pk_type, pk, q, chronological_field)
+        qu = restore_query_order(rev_order, pk_type, pk, q, chronological_field)
+        qu
       {:error, :not_found} ->
         query
         |> where([c], false)
@@ -191,15 +192,15 @@ defmodule Ecto.Paging do
     end
   end
 
-  def find_where_order(%Ecto.Query{order_bys: [%Ecto.Query.QueryExpr{expr: expr} | t]} = query, chronological_field, timestamp)
-      when is_list(expr) and length(expr) > 0 do
-    case Keyword.keys(expr) |> Enum.at(0) do
+  def find_where_order(%Ecto.Query{order_bys: order_bys} = query, chronological_field, timestamp)
+      when is_list(order_bys) and length(order_bys) > 0 do
+    case get_order_from_expression(order_bys) do
       :asc  -> query |> where([c], field(c, ^chronological_field) < ^timestamp)
       :desc -> query |> where([c], field(c, ^chronological_field) > ^timestamp)
     end
   end
 
-   def find_where_order(%Ecto.Query{} = query, chronological_field, timestamp) do
+  def find_where_order(%Ecto.Query{} = query, chronological_field, timestamp) do
     query |> where([c], field(c, ^chronological_field) < ^timestamp)
   end
 
@@ -207,12 +208,20 @@ defmodule Ecto.Paging do
     {:asc, query |> order_by([c], desc: field(c, ^chronological_field))}
   end
 
-  #TODO: potencial bug maker. Checked, it is
-  defp flip_orders(%Ecto.Query{order_bys: order_bys} = query, _pk, _pk_type, _chronological_field)
+  defp flip_orders(%Ecto.Query{order_bys: order_bys} = query, _pk, _pk_type, chronological_field)
        when is_list(order_bys) and length(order_bys) > 0 do
-         require IEx
-         IEx.pry
-    {:desc, query}
+    order = get_order_from_expression(order_bys)
+    query = case order do
+      :asc -> query |> exclude(:order_by) |> order_by([c], desc: field(c, ^chronological_field))
+      :desc -> query
+    end
+    {order, query}
+  end
+
+  defp flip_orders(%Ecto.Query{} = query, pk, :binary, _chronological_field) do
+    require IEx
+    IEx.pry
+    {:asc, query}
   end
 
   defp flip_orders(%Ecto.Query{} = query, pk, _pk_type, _chronological_field) do
@@ -247,5 +256,10 @@ defmodule Ecto.Paging do
     :primary_key
     |> model.__schema__
     |> List.first
+  end
+
+  defp get_order_from_expression(expression) do
+    [%Ecto.Query.QueryExpr{expr: expr} | _t] = expression
+    Keyword.keys(expr) |> Enum.at(0)
   end
 end
