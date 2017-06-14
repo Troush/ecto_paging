@@ -218,10 +218,8 @@ defmodule Ecto.Paging do
     {order, query}
   end
 
-  defp flip_orders(%Ecto.Query{} = query, pk, :binary, _chronological_field) do
-    require IEx
-    IEx.pry
-    {:asc, query}
+  defp flip_orders(%Ecto.Query{} = query, pk, :binary_id, chronological_field) do
+    {:asc, query |> order_by([c], desc: field(c, ^chronological_field))}
   end
 
   defp flip_orders(%Ecto.Query{} = query, pk, _pk_type, _chronological_field) do

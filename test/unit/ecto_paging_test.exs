@@ -29,7 +29,7 @@ defmodule Ecto.PagingTest do
   test "explictly define asc order works" do
     records = insert_records()
     {:ok, record} = List.last(records)
-    {{:ok, penultimate_record}, list} = List.pop_at(records, length(records) - 2)
+    {{:ok, penultimate_record}, _list} = List.pop_at(records, length(records) - 2)
     res1 =
       get_query()
       |> Ecto.Query.order_by(asc: :inserted_at)
@@ -187,6 +187,12 @@ defmodule Ecto.PagingTest do
       assert res2 == res3
 
       assert length(res2) == 50
+
+      {penultimate_record, _list} = List.pop_at(res1, length(res1) - 2)
+      {start_record, _list} = List.pop_at(res1, length(res1) - 51)
+      assert penultimate_record in res2
+      assert start_record in res2
+      refute List.last(res1) in res2
 
       # Second query should be subset of first one
       assert 0 == 0..49
@@ -439,31 +445,26 @@ defmodule Ecto.PagingTest do
 
       assert length(res1) == 150
 
-      q = get_query_with_binary_id()
-      # |> Ecto.Query.order_by(asc: :inserted_at)
+      res2 = get_query_with_binary_id()
       |> Ecto.Paging.TestRepo.paginate(%{limit: 50, cursors: %{ending_before: List.last(res1).id}})
-      res2 = q
       |> Ecto.Paging.TestRepo.all
 
       {penultimate_record, _list} = List.pop_at(res1, length(res1) - 2)
       {start_record, _list} = List.pop_at(res1, length(res1) - 51)
-      require IEx
-      IEx.pry
+
       assert penultimate_record in res2
       assert start_record in res2
       refute List.last(res1) in res2
-      {res3, paging} = get_query_with_binary_id()
-      |> Ecto.Paging.TestRepo.page(%{limit: 150, cursors: %{ending_before: List.last(res1).id}})
 
-      # assert res2 == res3
+      {res3, paging} = get_query_with_binary_id()
+      |> Ecto.Paging.TestRepo.page(%{limit: 50, cursors: %{ending_before: List.last(res1).id}})
+
+      assert res2 == res3
 
       assert length(res2) == 50
 
       assert 0 == 0..49
       |> Enum.filter(fn index ->
-        IO.inspect {Enum.at(res1, index + 99).id, Enum.at(res2, index).id}
-        IO.inspect {Enum.at(res1, index + 99).inserted_at, Enum.at(res2, index).inserted_at}
-        IO.inspect "======"
         Enum.at(res1, index + 99).id != Enum.at(res2, index).id
       end)
       |> length
