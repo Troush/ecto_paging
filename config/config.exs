@@ -6,11 +6,10 @@ config :ecto_paging, Ecto.Paging.TestRepo,
   database: "ecto_paging_test",
   username: "postgres",
   password: "postgres",
-  hostname: "localhost"
+  hostname: "localhost",
+  ownership_timeout: 120_000_000
 
 config :ecto_paging, ecto_repos: [Ecto.Paging.TestRepo]
 
 config :logger, level: :debug
 config :ex_unit, capture_log: true
-
-import_config "#{Mix.env}.exs"
